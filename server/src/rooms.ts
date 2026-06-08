@@ -136,6 +136,35 @@ export class RoomManager {
     room.game.begin();
   }
 
+  /** L'hôte expulse un joueur du lobby (avant le lancement). */
+  kickPlayer(socket: ClientSocket, targetId: string): void {
+    const ctx = this.sockets.get(socket.id);
+    if (!ctx) return;
+    const room = this.rooms.get(ctx.roomCode);
+    if (!room || room.phase !== 'lobby') return;
+    if (ctx.playerId !== room.hostId) return this.error(socket, 'Seul l\'hôte peut expulser.');
+    if (targetId === room.hostId) return; // l'hôte ne s'expulse pas lui-même
+
+    const seat = room.seats.find((s) => s.id === targetId);
+    if (!seat) return;
+    room.seats = room.seats.filter((s) => s.id !== targetId);
+
+    // Annuler une réservation de slot éventuelle.
+    const t = room.reconnectTimers.get(targetId);
+    if (t) {
+      clearTimeout(t);
+      room.reconnectTimers.delete(targetId);
+    }
+
+    if (seat.socketId) {
+      this.sockets.delete(seat.socketId);
+      this.io.to(seat.socketId).emit('kicked', { reason: 'Expulsé par l\'hôte.' });
+      const target = this.io.sockets.sockets.get(seat.socketId);
+      target?.leave(room.code);
+    }
+    this.broadcastLobby(room);
+  }
+
   /** DEV : crée une salle remplie de bots et démarre immédiatement la partie. */
   devQuickstart(socket: ClientSocket, pseudo: string, bots = 3, theme: Theme = 'classic'): void {
     const clean = pseudo.trim() || 'Toi';
@@ -543,9 +572,17 @@ export class RoomManager {
     if (room?.game && playerId) room.game.playCard(playerId, cardId, targetPlayerId, secondCardId);
   }
 
-  respond(socket: ClientSocket, response: string, cardId?: string): void {
+  respond(
+    socket: ClientSocket,
+    response: string,
+    cardId?: string,
+    cardIds?: string[],
+    targetPlayerId?: string,
+  ): void {
     const { room, playerId } = this.context(socket) ?? {};
-    if (room?.game && playerId) room.game.respond(playerId, response, cardId);
+    if (room?.game && playerId) {
+      room.game.respond(playerId, response, cardId, cardIds, targetPlayerId);
+    }
   }
 
   endTurn(socket: ClientSocket): void {

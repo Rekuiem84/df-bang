@@ -39,8 +39,10 @@ export interface GameApi {
   joinRoom: (roomCode: string, pseudo: string) => void;
   devQuickstart: (pseudo: string, bots?: number, theme?: Theme) => void;
   startGame: (theme?: Theme) => void;
+  kickPlayer: (playerId: string) => void;
   playCard: (cardId: string, targetPlayerId?: string, secondCardId?: string) => void;
   respond: (response: string, cardId?: string) => void;
+  respondDraw: (response: string, opts: { cardIds?: string[]; targetPlayerId?: string }) => void;
   endTurn: () => void;
   usePower: (power: string, cardIds?: string[]) => void;
   leave: () => void;
@@ -128,6 +130,19 @@ export function useGame(): GameApi {
       setDecisions((d) => d.filter((x) => x.playerId !== payload.playerId));
       setVotes((vs) => vs.filter((v) => v.playerId !== payload.playerId));
     }
+    function onKicked(payload: { reason?: string }) {
+      activeRef.current = false;
+      sessionStorage.removeItem(LS_ROOM);
+      setRoomCode(null);
+      setPlayerId(null);
+      setLobby(null);
+      setGame(null);
+      setGameOver(null);
+      setDecisions([]);
+      setVotes([]);
+      setScreen('home');
+      setError(payload.reason || 'Tu as été expulsé de la salle.');
+    }
     function onError(payload: { message: string }) {
       setError(payload.message);
     }
@@ -142,6 +157,7 @@ export function useGame(): GameApi {
     socket.on('disconnect_decision', onDecision);
     socket.on('elimination_vote', onVote);
     socket.on('disconnect_resolved', onDecisionResolved);
+    socket.on('kicked', onKicked);
     socket.on('error', onError);
 
     if (socket.connected) onConnect();
@@ -157,6 +173,7 @@ export function useGame(): GameApi {
       socket.off('disconnect_decision', onDecision);
       socket.off('elimination_vote', onVote);
       socket.off('disconnect_resolved', onDecisionResolved);
+      socket.off('kicked', onKicked);
       socket.off('error', onError);
     };
   }, []);
@@ -189,6 +206,10 @@ export function useGame(): GameApi {
     [roomCode],
   );
 
+  const kickPlayer = useCallback((pid: string) => {
+    socket.emit('kick_player', { playerId: pid });
+  }, []);
+
   const devQuickstart = useCallback((p: string, bots = 3, theme: Theme = 'classic') => {
     setPseudo(p);
     pseudoRef.current = p;
@@ -206,6 +227,13 @@ export function useGame(): GameApi {
   const respond = useCallback((response: string, cardId?: string) => {
     socket.emit('respond_to_action', { response, cardId });
   }, []);
+
+  const respondDraw = useCallback(
+    (response: string, opts: { cardIds?: string[]; targetPlayerId?: string }) => {
+      socket.emit('respond_to_action', { response, ...opts });
+    },
+    [],
+  );
 
   const endTurn = useCallback(() => {
     socket.emit('end_turn', {});
@@ -259,8 +287,10 @@ export function useGame(): GameApi {
     joinRoom,
     devQuickstart,
     startGame,
+    kickPlayer,
     playCard,
     respond,
+    respondDraw,
     endTurn,
     usePower,
     leave,

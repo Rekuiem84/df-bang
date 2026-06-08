@@ -102,7 +102,9 @@ export class GameRoom {
 
   /** Stratégie minimale : tente 1 BANG! à portée, sinon finit le tour. */
   private botPlay(bot: ServerPlayer): void {
-    const bang = bot.hand.find((c) => c.name === 'bang');
+    // Pas de BANG! des bots pendant le 1er tour de table.
+    const firstRound = this.state.turnCount <= this.state.players.length;
+    const bang = firstRound ? undefined : bot.hand.find((c) => c.name === 'bang');
     if (bang && this.state.bangPlayedThisTurn === 0) {
       const targets = this.state.players.filter(
         (p) => p.isAlive && p.id !== bot.id && isInRange(this.state, bot.id, p.id),
@@ -174,6 +176,7 @@ export class GameRoom {
       return;
     }
 
+    this.state.turnCount += 1;
     addLog(this.state, `— Tour de ${player.pseudo} —`);
     this.state.turnPhase = 'draw';
 
@@ -193,8 +196,57 @@ export class GameRoom {
       return;
     }
 
-    // 3. Pioche
-    this.drawPhase(player);
+    // 3. Pioche (choix interactif pour Kit/Jesse/Pedro humains, sinon auto).
+    this.beginDrawPhase(player);
+  }
+
+  /**
+   * Démarre la phase de pioche. Pour Kit Carlson / Jesse Jones / Pedro Ramirez
+   * (humains), pose un choix ; sinon pioche automatiquement et passe au jeu.
+   */
+  private beginDrawPhase(player: ServerPlayer): void {
+    if (!player.isBot) {
+      if (player.character === 'kit_carlson') {
+        const peek = drawCards(this.state, 3);
+        this.setPending({
+          type: 'draw',
+          drawKind: 'kit',
+          fromPlayerId: player.id,
+          awaiting: [player.id],
+          storeCards: peek,
+          deadline: Date.now() + RESPONSE_TIMEOUT_MS,
+        });
+        this.broadcast();
+        return;
+      }
+      if (
+        player.character === 'jesse_jones' &&
+        this.state.players.some((p) => p.isAlive && p.id !== player.id && p.hand.length > 0)
+      ) {
+        this.setPending({
+          type: 'draw',
+          drawKind: 'jesse',
+          fromPlayerId: player.id,
+          awaiting: [player.id],
+          deadline: Date.now() + RESPONSE_TIMEOUT_MS,
+        });
+        this.broadcast();
+        return;
+      }
+      if (player.character === 'pedro_ramirez' && this.state.discardPile.length > 0) {
+        this.setPending({
+          type: 'draw',
+          drawKind: 'pedro',
+          fromPlayerId: player.id,
+          awaiting: [player.id],
+          deadline: Date.now() + RESPONSE_TIMEOUT_MS,
+        });
+        this.broadcast();
+        return;
+      }
+    }
+    // Pioche automatique (bots + personnages sans choix + cas non pertinents).
+    this.autoDraw(player);
     this.state.turnPhase = 'play';
     this.broadcast();
   }
@@ -244,7 +296,8 @@ export class GameRoom {
     return true;
   }
 
-  private drawPhase(player: ServerPlayer): void {
+  /** Pioche automatique (pour les bots et personnages sans choix). */
+  private autoDraw(player: ServerPlayer): void {
     // Black Jack : la 2e carte est révélée ; si Cœur/Carreau, pioche 1 bonus.
     if (player.character === 'black_jack') {
       const c1 = drawCard(this.state);
@@ -590,7 +643,7 @@ export class GameRoom {
       const res = drawCheck(this.state, target, (c) => c.suit === 'hearts');
       if (res.success) {
         missedRequired -= 1;
-        addLog(this.state, `${target.pseudo} esquive grâce au Tonneau (Cœur).`);
+        addLog(this.state, `${target.pseudo} esquive grâce à ${cardLabelOf('barrel', this.state.theme)} (Cœur).`);
       }
       barrels -= 1;
     }
@@ -711,7 +764,13 @@ export class GameRoom {
   // Réponses aux pendingAction
   // -------------------------------------------------------------------------
 
-  respond(playerId: string, response: string, cardId?: string): void {
+  respond(
+    playerId: string,
+    response: string,
+    cardId?: string,
+    cardIds?: string[],
+    targetPlayerId?: string,
+  ): void {
     const pa = this.state.pendingAction;
     if (!pa) return;
     if (pa.awaiting[0] !== playerId) return this.err(playerId, 'Ce n\'est pas à vous de répondre.');
@@ -731,6 +790,9 @@ export class GameRoom {
         break;
       case 'general_store':
         this.respondStore(pa, playerId, cardId);
+        break;
+      case 'draw':
+        this.respondDraw(pa, playerId, response, cardIds, targetPlayerId);
         break;
       case 'discard':
         this.respondDiscard(pa, playerId, cardId);
@@ -847,6 +909,59 @@ export class GameRoom {
     }
   }
 
+  /** Résout le choix de pioche de Kit Carlson / Jesse Jones / Pedro Ramirez. */
+  private respondDraw(
+    pa: PendingAction,
+    playerId: string,
+    response: string,
+    cardIds?: string[],
+    targetPlayerId?: string,
+  ): void {
+    const p = getPlayer(this.state, playerId)!;
+
+    if (pa.drawKind === 'kit') {
+      const peek = pa.storeCards ?? [];
+      // Cartes gardées : celles désignées, sinon les 2 premières par défaut.
+      let keep = peek.filter((c) => (cardIds ?? []).includes(c.id));
+      if (keep.length !== 2) keep = peek.slice(0, 2);
+      const back = peek.filter((c) => !keep.includes(c));
+      p.hand.push(...keep);
+      for (const c of back) this.state.deck.push(c); // remise sur le dessus
+      addLog(this.state, `${p.pseudo} (Kit Carlson) garde 2 cartes et en remet 1.`);
+    } else if (pa.drawKind === 'jesse') {
+      // 1re carte : main d'un joueur visé, sinon pioche.
+      const target = targetPlayerId ? getPlayer(this.state, targetPlayerId) : undefined;
+      if (response === 'steal' && target && target.id !== p.id && target.hand.length > 0) {
+        const i = Math.floor(Math.random() * target.hand.length);
+        const stolen = target.hand.splice(i, 1)[0];
+        p.hand.push(stolen);
+        this.checkSuzy(target);
+        addLog(this.state, `${p.pseudo} (Jesse Jones) vole une carte à ${target.pseudo}.`);
+      } else {
+        const c = drawCard(this.state);
+        if (c) p.hand.push(c);
+      }
+      const second = drawCard(this.state);
+      if (second) p.hand.push(second);
+    } else if (pa.drawKind === 'pedro') {
+      // 1re carte : défausse ou pioche.
+      if (response === 'discard' && this.state.discardPile.length > 0) {
+        const fromDiscard = this.state.discardPile.pop()!;
+        p.hand.push(fromDiscard);
+        addLog(this.state, `${p.pseudo} (Pedro Ramirez) pioche la carte du dessus de la défausse.`);
+      } else {
+        const c = drawCard(this.state);
+        if (c) p.hand.push(c);
+      }
+      const second = drawCard(this.state);
+      if (second) p.hand.push(second);
+    }
+
+    this.clearPending();
+    this.state.turnPhase = 'play';
+    this.broadcast();
+  }
+
   private respondDiscard(pa: PendingAction, playerId: string, cardId?: string): void {
     const p = getPlayer(this.state, playerId)!;
     let ci = p.hand.findIndex((c) => c.id === cardId);
@@ -947,6 +1062,9 @@ export class GameRoom {
         break;
       case 'general_store':
         this.respond(current, 'pick');
+        break;
+      case 'draw':
+        this.respond(current, 'deck'); // défaut : pioche normale (Kit garde 2)
         break;
       case 'discard':
         this.respond(current, 'discard');

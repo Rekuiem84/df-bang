@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GameApi } from '../hooks/useGame';
 import type { Card, PublicPlayer } from '@shared/types';
 import type { CharacterName, Role, Theme } from '@shared/types';
@@ -6,6 +6,7 @@ import { CardView } from '../components/CardView';
 import { TableSeat } from '../components/TableSeat';
 import { DiscardPile } from '../components/DiscardPile';
 import { ReactionModal } from '../components/ReactionModal';
+import { DrawChoiceModal } from '../components/DrawChoiceModal';
 import { CharacterModal } from '../components/CharacterModal';
 import { cardLabel, roleLabel, CHARACTER_LABELS } from '@shared/data';
 
@@ -29,7 +30,24 @@ export function Game({ api }: { api: GameApi }) {
   const [infoChar, setInfoChar] = useState<CharacterName | null>(null);
   const [preview, setPreview] = useState<Card | null>(null);
   const [guesses, setGuesses] = useState<Record<string, Role | undefined>>({});
+  const [showHistory, setShowHistory] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [turnBanner, setTurnBanner] = useState<string | null>(null);
+  const prevTurnRef = useRef<string | null>(null);
   const gestureRef = useRef<{ card: Card; x: number; y: number; moved: boolean } | null>(null);
+
+  // Bannière « c'est au tour de … » à chaque changement de joueur actif.
+  useEffect(() => {
+    const g = api.game;
+    if (!g || g.phase !== 'playing' || !g.currentPlayerId) return;
+    if (g.currentPlayerId === prevTurnRef.current) return;
+    prevTurnRef.current = g.currentPlayerId;
+    const isMe = g.me?.id === g.currentPlayerId;
+    const name = g.players.find((p) => p.id === g.currentPlayerId)?.pseudo ?? '…';
+    setTurnBanner(isMe ? '🤠 À toi de jouer !' : `Au tour de ${name}`);
+    const t = setTimeout(() => setTurnBanner(null), 2600);
+    return () => clearTimeout(t);
+  }, [api.game?.currentPlayerId, api.game?.phase]);
 
   // Cycle de marquage : aucun → Hors-la-loi → Renégat → Adjoint → aucun.
   const GUESS_CYCLE: (Role | undefined)[] = [undefined, 'outlaw', 'renegade', 'deputy'];
@@ -154,6 +172,13 @@ export function Game({ api }: { api: GameApi }) {
         </button>
       </div>
 
+      {/* Bouton historique de la partie */}
+      <div className="subbar">
+        <button className="btn tiny ghost" onClick={() => setShowLog(true)}>
+          📖 Historique
+        </button>
+      </div>
+
       {/* Table : autres joueurs en arc + pile centrale */}
       <div className="table">
         {game.players.map((p, i) => (
@@ -172,10 +197,22 @@ export function Game({ api }: { api: GameApi }) {
           </div>
         ))}
         <DiscardPile cards={game.discardRecent} armed={!!drag?.armed} onPreview={setPreview} theme={theme} />
+        {game.discardAll.length > 0 && (
+          <button
+            className="discard-history-btn"
+            title="Voir toute la défausse"
+            onClick={() => setShowHistory(true)}
+          >
+            📜 {game.discardAll.length}
+          </button>
+        )}
       </div>
 
+      {/* Bannière de tour */}
+      {turnBanner && <div className="turn-banner">{turnBanner}</div>}
+
       {/* Zone du joueur */}
-      <div className="me-zone">
+      <div className={`me-zone ${isMyTurn ? 'active' : ''}`}>
         <div className="me-status">
           <strong>{me.pseudo}</strong>
           <span className={`role role-${me.role}`}>{roleLabel(me.role, theme)}</span>
@@ -195,7 +232,9 @@ export function Game({ api }: { api: GameApi }) {
           {me.inPlay.length === 0 ? (
             <span className="equip-empty">Aucun équipement</span>
           ) : (
-            me.inPlay.map((c) => <CardView key={c.id} card={c} small theme={theme} />)
+            me.inPlay.map((c) => (
+              <CardView key={c.id} card={c} small theme={theme} onClick={() => setPreview(c)} />
+            ))
           )}
         </div>
 
@@ -252,7 +291,6 @@ export function Game({ api }: { api: GameApi }) {
               Finir le tour
             </button>
           )}
-          {canPlay && <div className="drag-hint">⬆️ Glisse une carte vers la pile pour la jouer</div>}
         </div>
       </div>
 
@@ -265,11 +303,62 @@ export function Game({ api }: { api: GameApi }) {
         </div>
       )}
 
+      {/* Historique de la défausse */}
+      {showHistory && (
+        <div className="modal-backdrop" onClick={() => setShowHistory(false)}>
+          <div className="modal history-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Défausse ({game.discardAll.length})</h3>
+            <p className="muted">De la plus ancienne à la plus récente.</p>
+            <div className="history-grid">
+              {game.discardAll.map((c, i) => (
+                <div key={`${c.id}_${i}`} className="history-item">
+                  <span className="history-num">{i + 1}</span>
+                  <CardView card={c} small theme={theme} onClick={() => setPreview(c)} />
+                </div>
+              ))}
+            </div>
+            <button className="btn primary" onClick={() => setShowHistory(false)}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Historique de la partie (journal) */}
+      {showLog && (
+        <div className="modal-backdrop" onClick={() => setShowLog(false)}>
+          <div className="modal log-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Historique de la partie</h3>
+            <div className="log-list">
+              {game.log.length === 0 ? (
+                <p className="muted">Rien pour l'instant.</p>
+              ) : (
+                game.log.map((line, i) => (
+                  <div key={i} className="log-line">
+                    {line}
+                  </div>
+                ))
+              )}
+            </div>
+            <button className="btn primary" onClick={() => setShowLog(false)}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Fiche personnage */}
       {infoChar && <CharacterModal character={infoChar} theme={theme} onClose={() => setInfoChar(null)} />}
 
+      {/* Pop-up choix de pioche (Kit / Jesse / Pedro) */}
+      {awaitingMe && pending?.type === 'draw' && (
+        <DrawChoiceModal api={api} pending={pending} game={game} theme={theme} />
+      )}
+
       {/* Pop-up réaction */}
-      {awaitingMe && pending && <ReactionModal api={api} pending={pending} me={me} theme={theme} />}
+      {awaitingMe && pending && pending.type !== 'draw' && (
+        <ReactionModal api={api} pending={pending} me={me} theme={theme} />
+      )}
 
       {/* Pop-up choix de carte (Panique / Cat Balou) */}
       {pickFor && (
@@ -309,8 +398,9 @@ export function Game({ api }: { api: GameApi }) {
 function seatPosition(i: number, total: number): React.CSSProperties {
   const frac = total === 1 ? 0.5 : i / (total - 1);
   const angle = Math.PI + frac * Math.PI; // π → 2π : gauche → haut → droite
-  const x = 50 + 40 * Math.cos(angle);
-  const y = 48 + 40 * Math.sin(angle);
+  // Rayons réduits pour rester dans le terrain (pas de débordement bord/header).
+  const x = 50 + 34 * Math.cos(angle);
+  const y = 50 + 38 * Math.sin(angle);
   return { left: `${x}%`, top: `${y}%` };
 }
 
@@ -318,8 +408,8 @@ function seatPosition(i: number, total: number): React.CSSProperties {
 function fanTransform(i: number, total: number): { transform: string; left: string } {
   const t = total === 1 ? 0 : i / (total - 1) - 0.5; // -0.5 .. 0.5
   const spread = Math.min(64, total * 15); // largeur totale de l'éventail (%)
-  const rot = t * 26; // degrés
-  const dip = Math.abs(t) * 26; // les cartes extérieures descendent
+  const rot = t * 20; // degrés
+  const dip = Math.abs(t) * 14; // les cartes extérieures descendent
   return {
     left: `calc(50% + ${t * spread}% )`,
     transform: `translateX(-50%) translateY(${dip}px) rotate(${rot}deg)`,

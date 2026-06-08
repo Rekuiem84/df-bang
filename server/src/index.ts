@@ -33,6 +33,7 @@ io.on('connection', (socket) => {
   socket.on('join_room', ({ roomCode, pseudo }) => manager.joinRoom(socket, roomCode, pseudo));
   socket.on('reconnect_player', ({ roomCode, pseudo }) => manager.reconnect(socket, roomCode, pseudo));
   socket.on('start_game', ({ roomCode, theme }) => manager.startGame(socket, roomCode, theme));
+  socket.on('kick_player', ({ playerId }) => manager.kickPlayer(socket, playerId));
   socket.on('dev_quickstart', ({ pseudo, bots, theme }) =>
     manager.devQuickstart(socket, pseudo, bots, theme),
   );
@@ -40,7 +41,9 @@ io.on('connection', (socket) => {
   socket.on('play_card', ({ cardId, targetPlayerId, secondCardId }) =>
     manager.playCard(socket, cardId, targetPlayerId, secondCardId),
   );
-  socket.on('respond_to_action', ({ response, cardId }) => manager.respond(socket, response, cardId));
+  socket.on('respond_to_action', ({ response, cardId, cardIds, targetPlayerId }) =>
+    manager.respond(socket, response, cardId, cardIds, targetPlayerId),
+  );
   socket.on('end_turn', () => manager.endTurn(socket));
   socket.on('use_power', ({ power, cardIds }) => manager.usePower(socket, power, cardIds));
   socket.on('leave_room', () => manager.leaveRoom(socket));

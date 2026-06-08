@@ -89,9 +89,12 @@ node smoke-test.mjs  # dans un autre : 4 bots jouent une partie complète
 - **Faces des cartes** (couleur/valeur) : réparties de façon réaliste, pas
   exactement identiques à la liste officielle. Données isolées dans
   `shared/cards.ts` → remplaçables sans toucher au moteur.
-- **Bière in extremis** : jouée automatiquement pour survivre quand c'est
-  possible (pas de fenêtre de choix).
-- **Kit Carlson** : garde automatiquement 2 des 3 cartes (pas de choix manuel).
-- **Jesse Jones / Pedro Ramirez** : pioche standard / depuis la défausse, sans
-  l'option de piocher dans la main d'un adversaire (Jesse).
+- **Bière / Sid Ketchum in extremis** : la Bière est jouée automatiquement pour
+  survivre quand c'est possible ; pas de fenêtre de réaction au moment d'un coup
+  mortel (donc Sid ne peut pas se sauver à la dernière seconde).
 - **Lucky Duke** : implémenté (retourne 2, garde la meilleure) pour les jets.
+- **Kit Carlson / Jesse Jones / Pedro Ramirez** : choix de pioche interactif
+  implémenté pour les humains (pop-up en début de tour) ; automatique pour les
+  bots.
+- **Images** : pas encore de visuels custom (cartes en texte). Prévu :
+  `client/public/cards/<thème>/<nom>.png`.

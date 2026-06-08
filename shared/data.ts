@@ -147,7 +147,7 @@ const CARD_LABELS_BY_THEME: Record<Theme, Record<CardName, string>> = {
     saloon: 'Saloon',
     cat_balou: 'Coup de foudre',
     panic: 'Braquage !',
-    barrel: 'Tonneau',
+    barrel: 'Planque',
     dynamite: 'Dynamite',
     jail: 'Prison',
     mustang: 'Mustang',

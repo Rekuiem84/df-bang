@@ -27,6 +27,15 @@ export function Lobby({ api }: { api: GameApi }) {
             <span className="name">{p.pseudo}</span>
             {p.isHost && <span className="badge">Hôte</span>}
             {!p.isConnected && <span className="badge muted">déconnecté</span>}
+            {isHost && !p.isHost && (
+              <button
+                className="kick-btn"
+                title={`Expulser ${p.pseudo}`}
+                onClick={() => api.kickPlayer(p.id)}
+              >
+                ✕
+              </button>
+            )}
           </li>
         ))}
       </ul>

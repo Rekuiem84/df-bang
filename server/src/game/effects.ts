@@ -52,16 +52,28 @@ export function dealDamage(
     }
   }
 
-  // Tentative de sauvetage automatique par Bière (sauf s'il reste 2 joueurs).
-  if (target.hp <= 0 && canUseBeer(state)) {
-    while (target.hp <= 0) {
+  // Sauvetage in extremis : Bière (+1 PV chacune, sauf à 2 joueurs) puis
+  // pouvoir de Sid Ketchum (défausse 2 cartes → +1 PV), jusqu'à survivre.
+  while (target.hp <= 0) {
+    // 1) Bière
+    if (canUseBeer(state)) {
       const beerIdx = target.hand.findIndex((c) => c.name === 'beer');
-      if (beerIdx < 0) break;
-      const beer = target.hand.splice(beerIdx, 1)[0];
-      discard(state, beer);
-      target.hp = 1;
-      addLog(state, `${target.pseudo} joue une Bière in extremis et survit à 1 PV.`);
+      if (beerIdx >= 0) {
+        discard(state, target.hand.splice(beerIdx, 1)[0]);
+        target.hp += 1;
+        addLog(state, `${target.pseudo} joue une Bière in extremis (+1 PV).`);
+        continue;
+      }
     }
+    // 2) Sid Ketchum : défausse 2 cartes pour +1 PV (sans limite de joueurs)
+    if (target.character === 'sid_ketchum' && target.hand.length >= 2) {
+      discard(state, target.hand.pop()!);
+      discard(state, target.hand.pop()!);
+      target.hp += 1;
+      addLog(state, `${target.pseudo} (Sid Ketchum) défausse 2 cartes pour survivre (+1 PV).`);
+      continue;
+    }
+    break; // plus aucun moyen de se sauver
   }
 
   if (target.hp <= 0) {

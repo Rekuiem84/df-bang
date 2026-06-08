@@ -474,10 +474,14 @@ body {
 	color: #2a1c0c;
 	border: 2px solid #00000022;
 	user-select: none;
+	overflow: hidden; /* évite que valeur/enseigne dépassent du cadre */
 }
 .card.small {
-	width: 70px;
-	min-height: 96px;
+	width: 78px;
+	min-height: 92px;
+}
+.card.small .card-suit {
+	font-size: 11px;
 }
 .card-brown {
 	background: linear-gradient(160deg, #e8c9a0, #d8a86f);
@@ -511,10 +515,23 @@ body {
 	font-weight: 800;
 	font-size: 13px;
 	line-height: 1.1;
+	min-width: 0;
 }
 .card-suit {
 	font-size: 13px;
 	font-weight: 700;
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+/* Petites cartes (équipement / défausse) : nom sur 2 lignes max, tronqué */
+.card.small .card-name {
+	flex: 1;
+	font-size: 11px;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	overflow-wrap: anywhere;
 }
 .card-suit.red {
 	color: #c0392b;
@@ -538,6 +555,9 @@ body {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+	position: relative;
+	z-index: 60; /* toujours au-dessus des cartes de la main */
+	margin-top: 4px;
 }
 
 /* ---------- Sid Ketchum ---------- */
@@ -661,6 +681,7 @@ body {
 
 .game {
 	height: 100dvh;
+	min-height: 100svh; /* svh = plus petite hauteur visible, ne déborde jamais */
 	padding: 6px;
 	gap: 6px;
 	overflow: hidden;
@@ -671,12 +692,14 @@ body {
 .table {
 	position: relative;
 	flex: 1 1 auto;
-	min-height: 260px;
-	margin: 2px 0;
+	/* min-height:0 → la table absorbe la compression, la zone joueur (avec
+	   « Finir le tour ») reste toujours visible en bas. */
+	min-height: 0;
+	margin: 6px 0 2px;
 }
 .seat-slot {
 	position: absolute;
-	width: 104px;
+	width: 92px;
 	transform: translate(-50%, -50%);
 }
 
@@ -862,8 +885,9 @@ body {
 /* ---- Éventail ---- */
 .fan {
 	position: relative;
-	height: 138px;
+	height: 118px;
 	margin-top: 2px;
+	z-index: 2;
 }
 .fan-card {
 	position: absolute;
@@ -875,9 +899,17 @@ body {
 	cursor: grab;
 }
 .fan-card .card {
-	width: 84px;
-	min-height: 116px;
+	width: 82px;
+	height: 112px; /* taille fixe : toutes les cartes en main identiques */
+	min-height: 0;
 	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+/* Description tronquée proprement sur les cartes en main */
+.fan-card .card-effect {
+	display: -webkit-box;
+	-webkit-line-clamp: 5;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 .fan-card.playable {
 	cursor: grab;
@@ -1089,5 +1121,137 @@ body {
 }
 .theme-options {
 	display: flex;
+	gap: 8px;
+}
+
+/* Bannière « c'est au tour de … » */
+.turn-banner {
+	position: absolute;
+	top: 64px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--accent);
+	color: #2a1c0c;
+	font-weight: 800;
+	font-size: 18px;
+	padding: 10px 22px;
+	border-radius: 999px;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+	z-index: 250;
+	white-space: nowrap;
+	pointer-events: none;
+	animation: turnIn 0.25s ease, turnPulse 1.2s ease-in-out infinite 0.25s;
+}
+@keyframes turnIn {
+	from { opacity: 0; transform: translate(-50%, -14px); }
+	to { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes turnPulse {
+	0%, 100% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); }
+	50% { box-shadow: 0 6px 28px rgba(217, 164, 65, 0.85); }
+}
+
+/* Ma zone surlignée quand c'est mon tour */
+.me-zone.active {
+	border-top: 2px solid var(--accent);
+	box-shadow: 0 -6px 18px -6px rgba(217, 164, 65, 0.7);
+	border-radius: 10px 10px 0 0;
+}
+
+/* Icône d'historique de la défausse */
+.discard-history-btn {
+	position: absolute;
+	left: 50%;
+	top: 82%;
+	transform: translateX(-50%);
+	min-height: 30px;
+	border: 1px solid var(--panel2);
+	background: var(--panel);
+	color: var(--text);
+	border-radius: 999px;
+	font-size: 12px;
+	padding: 0 12px;
+	cursor: pointer;
+}
+
+/* Modale historique défausse */
+.history-modal .history-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	justify-content: center;
+	overflow-y: auto;
+}
+.history-item {
+	position: relative;
+}
+.history-num {
+	position: absolute;
+	top: -4px;
+	left: -4px;
+	z-index: 2;
+	background: var(--accent);
+	color: #2a1c0c;
+	font-size: 10px;
+	font-weight: 700;
+	border-radius: 999px;
+	min-width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 3px;
+}
+
+/* Sous-barre (bouton historique) sous le header */
+.subbar {
+	display: flex;
+	justify-content: flex-start;
+	margin-top: -2px;
+}
+
+/* Modale du journal de partie */
+.log-modal .log-list {
+	max-height: 60vh;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 13px;
+	background: rgba(0, 0, 0, 0.25);
+	border-radius: 8px;
+	padding: 10px 12px;
+}
+.log-modal .log-line {
+	color: var(--text);
+	line-height: 1.35;
+}
+
+/* Bouton expulser dans le lobby */
+.kick-btn {
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	border: 1px solid var(--danger);
+	background: transparent;
+	color: var(--danger);
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+	flex: 0 0 auto;
+}
+.kick-btn:active {
+	background: var(--danger);
+	color: #fff;
+}
+
+/* Modale de choix de pioche (Kit / Jesse / Pedro) */
+.draw-modal {
+	text-align: center;
+	border-color: var(--accent);
+}
+.draw-options {
+	display: flex;
+	flex-direction: column;
 	gap: 8px;
 }

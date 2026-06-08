@@ -73,6 +73,7 @@ export function setupGame(
     phase: 'playing',
     turnPhase: 'draw',
     bangPlayedThisTurn: 0,
+    turnCount: 0,
     pendingAction: null,
     log: [],
   };

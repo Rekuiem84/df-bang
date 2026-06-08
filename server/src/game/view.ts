@@ -70,6 +70,11 @@ function toPendingView(pa: PendingAction, viewerId: string, theme: Theme): Pendi
     case 'general_store':
       prompt = `${cardLabel('general_store', theme)} : choisissez une carte.`;
       break;
+    case 'draw':
+      if (pa.drawKind === 'kit') prompt = 'Kit Carlson : gardez 2 des 3 cartes.';
+      else if (pa.drawKind === 'jesse') prompt = 'Jesse Jones : 1re carte — pioche ou main d\'un joueur ?';
+      else prompt = 'Pedro Ramirez : 1re carte — pioche ou défausse ?';
+      break;
     case 'discard':
       prompt = 'Défaussez jusqu\'à avoir autant de cartes que de PV.';
       break;
@@ -81,6 +86,7 @@ function toPendingView(pa: PendingAction, viewerId: string, theme: Theme): Pendi
     awaitingPlayerId: awaitingNow,
     missedRequired: pa.missedRequired,
     storeCards: pa.storeCards,
+    drawKind: pa.drawKind,
     prompt,
     deadline: pa.deadline,
   };
@@ -105,10 +111,11 @@ export function buildView(state: GameState, viewerId: string): GameStateView {
     deckCount: state.deck.length,
     discardTop: discardTop(state),
     discardRecent: state.discardPile.slice(-6),
+    discardAll: state.discardPile,
     pendingAction: state.pendingAction ? toPendingView(state.pendingAction, viewerId, state.theme) : null,
     distances: me ? distanceMap(state, viewerId) : {},
     canPlayBang: me ? canPlayerPlayBang(state, me) : false,
-    log: state.log.slice(-12),
+    log: state.log,
   };
 }
 

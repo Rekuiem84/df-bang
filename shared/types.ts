@@ -149,7 +149,11 @@ export type PendingActionType =
 	| "indians" // jouer un BANG! ou perdre 1 PV
 	| "duel" // répondre par un BANG! ou perdre 1 PV
 	| "general_store" // choisir une carte étalée
+	| "draw" // choix de pioche (Kit Carlson / Jesse Jones / Pedro Ramirez)
 	| "discard"; // défausser des cartes (fin de tour si main > PV)
+
+/** Variante de choix de pioche selon le personnage. */
+export type DrawKind = "kit" | "jesse" | "pedro";
 
 export interface PendingActionOption {
 	cardId?: string;
@@ -169,8 +173,10 @@ export interface PendingActionView {
 	awaitingPlayerId: string;
 	/** Nombre de Missed! requis (Slab the Killer = 2). */
 	missedRequired?: number;
-	/** Cartes étalées (general_store). */
+	/** Cartes étalées (general_store) ou les 3 cartes vues par Kit Carlson. */
 	storeCards?: Card[];
+	/** Variante de choix de pioche (type === 'draw'). */
+	drawKind?: DrawKind;
 	/** Texte d'aide. */
 	prompt: string;
 	/** Échéance Unix (ms) avant réponse automatique. */
@@ -195,6 +201,8 @@ export interface GameStateView {
 	discardTop: Card | null;
 	/** Dernières cartes jouées/défaussées (la dernière = sommet de la pile). */
 	discardRecent: Card[];
+	/** Toute la défausse, dans l'ordre où les cartes y ont été posées. */
+	discardAll: Card[];
 	pendingAction: PendingActionView | null;
 	/** Distances depuis « me » vers chaque autre joueur (id -> distance). */
 	distances: Record<string, number>;
@@ -244,12 +252,18 @@ export interface ClientToServerEvents {
 	create_room: (payload: { pseudo: string }) => void;
 	join_room: (payload: { roomCode: string; pseudo: string }) => void;
 	start_game: (payload: { roomCode: string; theme?: Theme }) => void;
+	kick_player: (payload: { playerId: string }) => void;
 	play_card: (payload: {
 		cardId: string;
 		targetPlayerId?: string;
 		secondCardId?: string;
 	}) => void;
-	respond_to_action: (payload: { response: string; cardId?: string }) => void;
+	respond_to_action: (payload: {
+		response: string;
+		cardId?: string;
+		cardIds?: string[];
+		targetPlayerId?: string;
+	}) => void;
 	end_turn: (payload: Record<string, never>) => void;
 	reconnect_player: (payload: { roomCode: string; pseudo: string }) => void;
 	use_power: (payload: { power: string; cardIds?: string[] }) => void;
@@ -281,6 +295,8 @@ export interface ServerToClientEvents {
 		role: Role;
 	}) => void;
 	game_over: (payload: GameOverView) => void;
+	/** Le joueur a été expulsé du lobby par l'hôte. */
+	kicked: (payload: { reason?: string }) => void;
 	error: (payload: { message: string }) => void;
 	/** Confirmation de création/jonction avec l'id de session. */
 	joined: (payload: { roomCode: string; playerId: string }) => void;

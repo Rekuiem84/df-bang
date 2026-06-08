@@ -28,7 +28,9 @@ export interface ServerPlayer {
  * un Duel s'imbrique, etc.).
  */
 export interface PendingAction {
-  type: 'bang' | 'gatling' | 'indians' | 'duel' | 'general_store' | 'discard';
+  type: 'bang' | 'gatling' | 'indians' | 'duel' | 'general_store' | 'draw' | 'discard';
+  /** Variante de pioche (Kit/Jesse/Pedro) quand type === 'draw'. */
+  drawKind?: 'kit' | 'jesse' | 'pedro';
   /** Joueur source (attaquant / joueur actif). */
   fromPlayerId: string;
   /** File des joueurs dont on attend une réponse (FIFO). */
@@ -65,6 +67,8 @@ export interface GameState {
   turnPhase: TurnPhase | null;
   /** BANG! déjà joués ce tour (pour la limite de 1). */
   bangPlayedThisTurn: number;
+  /** Numéro du tour courant (1 = 1er tour du Shérif). */
+  turnCount: number;
   pendingAction: PendingAction | null;
   /** Journal d'événements (FR), borné aux N derniers. */
   log: string[];
