@@ -1,0 +1,14 @@
+# Déploiement du backend BANG! sur Render.com (free tier).
+# Lier ce dépôt à Render ; le service détectera ce fichier (Blueprint).
+services:
+  - type: web
+    name: bang-server
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: CLIENT_ORIGIN
+        sync: false # à renseigner avec l'URL Vercel du frontend
