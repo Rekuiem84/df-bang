@@ -7,10 +7,11 @@ import {
   ClientToServerEvents,
   ServerToClientEvents,
   Theme,
+  CharacterName,
 } from '../../shared/types';
 import { MIN_PLAYERS, MAX_PLAYERS } from '../../shared/data';
 import { uid, generateRoomCode, normalizePseudo } from './util';
-import { setupGame } from './game/setup';
+import { setupSelection } from './game/setup';
 import { GameRoom } from './game/room';
 import { buildLobbyView } from './game/view';
 
@@ -128,7 +129,7 @@ export class RoomManager {
       return this.error(socket, `Il faut ${MIN_PLAYERS} à ${MAX_PLAYERS} joueurs.`);
     }
 
-    const game = setupGame(room.code, room.hostId, room.seats, theme);
+    const game = setupSelection(room.code, room.hostId, room.seats, theme);
     room.game = new GameRoom(this.io, game, (rc) => this.onGameOver(rc));
     room.phase = 'playing';
 
@@ -202,7 +203,7 @@ export class RoomManager {
     socket.join(code);
     socket.emit('joined', { roomCode: code, playerId });
 
-    const game = setupGame(code, playerId, seats, theme);
+    const game = setupSelection(code, playerId, seats, theme);
     room.game = new GameRoom(this.io, game, (rc) => this.onGameOver(rc));
     this.io.to(code).emit('game_started');
     room.game.begin();
@@ -328,6 +329,20 @@ export class RoomManager {
       return;
     }
 
+    // En partie/sélection : marquer le départ (coupe l'envoi vers ce socket).
+    const player = room.game?.state.players.find((p) => p.id === ctx.playerId);
+    if (player) {
+      player.isConnected = false;
+      player.socketId = null;
+    }
+
+    // Départ volontaire : s'il ne reste aucun humain (ex. partie vs bots),
+    // on supprime la room immédiatement.
+    if (!this.anyHumanConnected(room)) {
+      this.destroyRoom(room);
+      return;
+    }
+
     this.handlePlayerGone(room, ctx.playerId);
   }
 
@@ -338,12 +353,22 @@ export class RoomManager {
    */
   private handlePlayerGone(room: Room, playerId: string): void {
     const game = room.game;
-    if (!game || game.state.phase !== 'playing') return;
+    if (!game) return;
     const player = game.state.players.find((p) => p.id === playerId);
     if (!player) return;
 
+    // Toujours couper l'envoi vers ce socket (sinon l'ancienne partie continue
+    // de pousser son état → le joueur est ramené dedans).
     player.isConnected = false;
     player.socketId = null;
+
+    // Sélection en cours : forfait pour ne pas bloquer les autres.
+    if (game.state.phase === 'selecting') {
+      this.maybeScheduleCleanup(room);
+      game.forfeitSelection(playerId);
+      return;
+    }
+    if (game.state.phase !== 'playing') return;
 
     // Un joueur déjà éliminé (spectateur) : pas de décision, mais on vérifie
     // quand même s'il faut nettoyer la room.
@@ -412,6 +437,7 @@ export class RoomManager {
   /** Détruit une room et libère tous ses timers. */
   private destroyRoom(room: Room): void {
     if (this.anyHumanConnected(room)) return; // un humain est revenu entre-temps
+    this.cancelCleanup(room);
     for (const t of room.reconnectTimers.values()) clearTimeout(t);
     for (const v of room.votes.values()) clearTimeout(v.timer);
     room.reconnectTimers.clear();
@@ -593,6 +619,11 @@ export class RoomManager {
   usePower(socket: ClientSocket, power: string, cardIds?: string[]): void {
     const { room, playerId } = this.context(socket) ?? {};
     if (room?.game && playerId) room.game.usePower(playerId, power, cardIds);
+  }
+
+  chooseCharacter(socket: ClientSocket, character: CharacterName): void {
+    const { room, playerId } = this.context(socket) ?? {};
+    if (room?.game && playerId) room.game.chooseCharacter(playerId, character);
   }
 
   // -------------------------------------------------------------------------

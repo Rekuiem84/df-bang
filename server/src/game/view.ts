@@ -100,6 +100,16 @@ export function buildView(state: GameState, viewerId: string): GameStateView {
 
   const current = state.players[state.currentPlayerIndex];
 
+  const selection =
+    state.phase === 'selecting' && me
+      ? {
+          options: me.characterOptions ?? [me.character],
+          chosen: !!me.characterChosen,
+          remaining: state.players.filter((p) => !p.characterChosen).length,
+          deadline: state.selectionDeadline ?? Date.now(),
+        }
+      : null;
+
   return {
     roomCode: state.roomCode,
     theme: state.theme,
@@ -113,6 +123,7 @@ export function buildView(state: GameState, viewerId: string): GameStateView {
     discardRecent: state.discardPile.slice(-6),
     discardAll: state.discardPile,
     pendingAction: state.pendingAction ? toPendingView(state.pendingAction, viewerId, state.theme) : null,
+    selection,
     distances: me ? distanceMap(state, viewerId) : {},
     canPlayBang: me ? canPlayerPlayBang(state, me) : false,
     log: state.log,

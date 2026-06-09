@@ -166,6 +166,10 @@ body {
 	font-size: 13px;
 	padding: 0 10px;
 }
+.me-zone.active .btn {
+	border-radius: var(--radius) var(--radius) calc(var(--radius) - 4px)
+		calc(var(--radius) - 4px);
+}
 
 /* ---------- Lobby ---------- */
 .room-code {
@@ -469,7 +473,8 @@ body {
 	padding: 7px;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
+	justify-content: flex-start;
+	gap: 4px;
 	background: #efe2c4;
 	color: #2a1c0c;
 	border: 2px solid #00000022;
@@ -505,27 +510,40 @@ body {
 .card.disabled {
 	opacity: 0.55;
 }
-.card-top {
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start;
-	gap: 4px;
-}
 .card-name {
 	font-weight: 800;
 	font-size: 13px;
 	line-height: 1.1;
 	min-width: 0;
+	text-align: center;
+}
+/* Zone image — absorbe l'espace dispo, grande dans l'aperçu */
+.card-img {
+	flex: 1 1 auto;
+	min-height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	border: 1px solid rgba(0, 0, 0, 0.25);
+	overflow: hidden;
+}
+.card-img-el {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
 }
 .card-suit {
-	font-size: 13px;
-	font-weight: 700;
-	flex: 0 0 auto;
+	font-size: 12px;
+	font-weight: 800;
 	white-space: nowrap;
+}
+.card.small .card-suit {
+	font-size: 11px;
 }
 /* Petites cartes (équipement / défausse) : nom sur 2 lignes max, tronqué */
 .card.small .card-name {
-	flex: 1;
 	font-size: 11px;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -538,11 +556,6 @@ body {
 }
 .card-suit.black {
 	color: #222;
-}
-.card-range {
-	font-size: 11px;
-	font-weight: 700;
-	color: #5a3a12;
 }
 .card-type {
 	font-size: 10px;
@@ -746,7 +759,8 @@ body {
 }
 .tseat-sub {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
+	align-items: start;
 	gap: 4px;
 	margin: 2px 0;
 }
@@ -874,7 +888,7 @@ body {
 	min-height: 30px;
 	align-items: center;
 	overflow-x: auto;
-	padding: 0 2px;
+	padding: 0 12px;
 }
 .equip-empty {
 	color: var(--muted);
@@ -904,7 +918,7 @@ body {
 	min-height: 0;
 	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
 }
-/* Description tronquée proprement sur les cartes en main */
+/* Description tronquée proprement sur les cartes en main (sans image) */
 .fan-card .card-effect {
 	display: -webkit-box;
 	-webkit-line-clamp: 5;
@@ -944,25 +958,22 @@ body {
 
 /* Effet écrit sur la carte */
 .card-effect {
-	flex: 1;
+	flex: 0 0 auto;
 	font-size: 8.5px;
 	line-height: 1.18;
 	color: #3a2710;
-	margin: 3px 0;
 	overflow: hidden;
 	font-weight: 600;
 }
 .card-foot {
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
 	justify-content: space-between;
 	gap: 4px;
+	margin-top: auto; /* colle le pied (type + enseigne) en bas de la carte */
 }
 .card-foot .card-type {
 	font-size: 8px;
-}
-.card-foot .card-range {
-	font-size: 9px;
 }
 
 /* Personnage cliquable + fiche */
@@ -1023,19 +1034,23 @@ body {
 .card-preview .card-name {
 	font-size: 30px;
 }
+.card-preview .card-img {
+	min-height: 160px;
+	border-radius: 8px;
+}
+.card-preview .card-img-ph {
+	font-size: 64px;
+}
 .card-preview .card-suit {
-	font-size: 27px;
+	font-size: 24px;
 }
 .card-preview .card-effect {
-	font-size: 20px;
+	font-size: 18px;
 	line-height: 1.5;
-	margin: 14px 0;
+	flex: 0 0 auto;
 }
 .card-preview .card-foot .card-type {
 	font-size: 14px;
-}
-.card-preview .card-foot .card-range {
-	font-size: 17px;
 }
 
 /* Boîte dev : sélection du nombre de bots */
@@ -1140,22 +1155,35 @@ body {
 	z-index: 250;
 	white-space: nowrap;
 	pointer-events: none;
-	animation: turnIn 0.25s ease, turnPulse 1.2s ease-in-out infinite 0.25s;
+	animation:
+		turnIn 0.25s ease,
+		turnPulse 1.2s ease-in-out infinite 0.25s;
 }
 @keyframes turnIn {
-	from { opacity: 0; transform: translate(-50%, -14px); }
-	to { opacity: 1; transform: translate(-50%, 0); }
+	from {
+		opacity: 0;
+		transform: translate(-50%, -14px);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
 }
 @keyframes turnPulse {
-	0%, 100% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); }
-	50% { box-shadow: 0 6px 28px rgba(217, 164, 65, 0.85); }
+	0%,
+	100% {
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+	}
+	50% {
+		box-shadow: 0 6px 28px rgba(217, 164, 65, 0.85);
+	}
 }
 
 /* Ma zone surlignée quand c'est mon tour */
 .me-zone.active {
-	border-top: 2px solid var(--accent);
+	border: 2px solid var(--accent);
 	box-shadow: 0 -6px 18px -6px rgba(217, 164, 65, 0.7);
-	border-radius: 10px 10px 0 0;
+	border-radius: var(--radius);
 }
 
 /* Icône d'historique de la défausse */
@@ -1206,8 +1234,17 @@ body {
 /* Sous-barre (bouton historique) sous le header */
 .subbar {
 	display: flex;
-	justify-content: flex-start;
+	justify-content: space-between;
+	gap: 8px;
 	margin-top: -2px;
+}
+
+/* Carte non jouable ce tour (mode indices) : grisée, non glissable */
+.fan-card.unplayable {
+	filter: grayscale(0.8);
+}
+.fan-card.unplayable .card {
+	cursor: default;
 }
 
 /* Modale du journal de partie */
@@ -1254,4 +1291,100 @@ body {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+}
+
+/* Logo BANG! en tête de l'accueil */
+.logo-cont {
+	position: relative;
+	margin-inline: auto;
+	width: min(100%, 250px);
+}
+.home-logo {
+	width: 100%;
+	filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+}
+
+/* ---------- Sélection de personnage ---------- */
+.select {
+	text-align: center;
+	padding: 8px;
+	gap: 10px;
+}
+.select h2 {
+	margin: 4px 0 0;
+}
+/* Deux personnages côte à côte (PC comme mobile) */
+.char-choices {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+	align-items: start;
+}
+.char-card {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	background: var(--panel);
+	border: 2px solid var(--panel2);
+	border-radius: var(--radius);
+	padding: 8px;
+	color: var(--text);
+	cursor: pointer;
+	text-align: center;
+	min-width: 0;
+}
+.char-card.active {
+	border-color: var(--accent);
+	box-shadow: 0 0 14px rgba(217, 164, 65, 0.5);
+}
+.char-card .char-img {
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	border-radius: 8px;
+	overflow: hidden;
+	border: 1px solid rgba(0, 0, 0, 0.3);
+}
+.char-card .char-name {
+	font-weight: 800;
+	font-size: 14px;
+}
+.char-card .char-hp {
+	color: #e36;
+	font-size: 13px;
+}
+.char-card .char-power {
+	font-size: 11px;
+	line-height: 1.35;
+	color: var(--text);
+}
+
+/* Compte du deck affiché sous la défausse */
+.deck-count {
+	position: absolute;
+	left: 50%;
+	top: 72%;
+	transform: translateX(-50%);
+	font-size: 12px;
+	color: var(--muted);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Chiffres à chasse fixe pour les chronos (évite le sautillement) */
+.tnum,
+.reaction-timer,
+.select .turn-info {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Bouton « Finir le tour » : survol plus clair, clic plus foncé (pas de scale) */
+.btn.end-turn:hover {
+	background: #e6b656;
+	border-color: #e6b656;
+}
+.btn.end-turn:active {
+	transform: none;
+	background: #b5822e;
+	border-color: #b5822e;
+	box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.35);
 }

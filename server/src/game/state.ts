@@ -9,6 +9,10 @@ export interface ServerPlayer {
   pseudo: string;
   role: Role;
   character: CharacterName;
+  /** Les 2 personnages proposés en phase de sélection. */
+  characterOptions?: CharacterName[];
+  /** Vrai une fois le personnage validé. */
+  characterChosen?: boolean;
   hp: number;
   maxHp: number;
   hand: Card[];
@@ -52,7 +56,7 @@ export interface PendingAction {
   sourceCardId?: string;
 }
 
-export type GamePhase = 'lobby' | 'playing' | 'ended';
+export type GamePhase = 'lobby' | 'selecting' | 'playing' | 'ended';
 export type TurnPhase = 'draw' | 'play' | 'discard';
 
 export interface GameState {
@@ -70,6 +74,9 @@ export interface GameState {
   /** Numéro du tour courant (1 = 1er tour du Shérif). */
   turnCount: number;
   pendingAction: PendingAction | null;
+  /** Phase de sélection : échéance + timer de résolution automatique. */
+  selectionDeadline?: number;
+  selectionTimer?: ReturnType<typeof setTimeout>;
   /** Journal d'événements (FR), borné aux N derniers. */
   log: string[];
   /** Résultat si la partie est terminée. */

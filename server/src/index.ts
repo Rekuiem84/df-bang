@@ -34,6 +34,7 @@ io.on('connection', (socket) => {
   socket.on('reconnect_player', ({ roomCode, pseudo }) => manager.reconnect(socket, roomCode, pseudo));
   socket.on('start_game', ({ roomCode, theme }) => manager.startGame(socket, roomCode, theme));
   socket.on('kick_player', ({ playerId }) => manager.kickPlayer(socket, playerId));
+  socket.on('choose_character', ({ character }) => manager.chooseCharacter(socket, character));
   socket.on('dev_quickstart', ({ pseudo, bots, theme }) =>
     manager.devQuickstart(socket, pseudo, bots, theme),
   );

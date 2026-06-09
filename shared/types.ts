@@ -134,7 +134,7 @@ export interface PublicPlayer {
 // Phases & état de partie
 // ---------------------------------------------------------------------------
 
-export type GamePhase = "lobby" | "playing" | "ended";
+export type GamePhase = "lobby" | "selecting" | "playing" | "ended";
 
 /** Phase à l'intérieur d'un tour. */
 export type TurnPhase = "draw" | "play" | "discard";
@@ -204,6 +204,13 @@ export interface GameStateView {
 	/** Toute la défausse, dans l'ordre où les cartes y ont été posées. */
 	discardAll: Card[];
 	pendingAction: PendingActionView | null;
+	/** Phase de sélection de personnage (null hors de cette phase). */
+	selection: {
+		options: CharacterName[];
+		chosen: boolean;
+		remaining: number; // joueurs n'ayant pas encore validé
+		deadline: number;
+	} | null;
 	/** Distances depuis « me » vers chaque autre joueur (id -> distance). */
 	distances: Record<string, number>;
 	/** Indique si « me » peut encore jouer un BANG! ce tour. */
@@ -252,6 +259,7 @@ export interface ClientToServerEvents {
 	create_room: (payload: { pseudo: string }) => void;
 	join_room: (payload: { roomCode: string; pseudo: string }) => void;
 	start_game: (payload: { roomCode: string; theme?: Theme }) => void;
+	choose_character: (payload: { character: CharacterName }) => void;
 	kick_player: (payload: { playerId: string }) => void;
 	play_card: (payload: {
 		cardId: string;

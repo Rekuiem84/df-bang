@@ -1,6 +1,7 @@
 import { useGame } from './hooks/useGame';
 import { Home } from './screens/Home';
 import { Lobby } from './screens/Lobby';
+import { CharacterSelect } from './screens/CharacterSelect';
 import { Game } from './screens/Game';
 import { GameOver } from './screens/GameOver';
 import { DecisionModal } from './components/DecisionModal';
@@ -22,6 +23,7 @@ export function App() {
 
       {api.screen === 'home' && <Home api={api} />}
       {api.screen === 'lobby' && <Lobby api={api} />}
+      {api.screen === 'select' && <CharacterSelect api={api} />}
       {api.screen === 'game' && <Game api={api} />}
       {api.screen === 'over' && <GameOver api={api} />}
 

@@ -10,8 +10,10 @@ import {
   ClientToServerEvents,
   GameOverView,
   Card,
+  CharacterName,
 } from '../../../shared/types';
 import { roleLabel, cardLabel as cardLabelOf } from '../../../shared/data';
+import { finalizeSetup } from './setup';
 import {
   GameState,
   ServerPlayer,
@@ -30,6 +32,7 @@ import { isInRange, distanceBetween, hasEquipment } from './distance';
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 
 const RESPONSE_TIMEOUT_MS = 30_000;
+const SELECTION_TIMEOUT_MS = 30_000;
 
 /** Équipements bleus dont un seul exemplaire est autorisé par joueur. */
 const UNIQUE_BLUE = ['barrel', 'mustang', 'scope'];
@@ -53,6 +56,19 @@ export class GameRoom {
     this.botTimer = null;
     if (this.state.pendingAction?.timer) clearTimeout(this.state.pendingAction.timer);
     this.state.pendingAction = null;
+    if (this.state.selectionTimer) clearTimeout(this.state.selectionTimer);
+    this.state.selectionTimer = undefined;
+  }
+
+  /** Le joueur quitte pendant la sélection : on choisit pour lui (pas de blocage). */
+  forfeitSelection(playerId: string): void {
+    if (this.state.phase !== 'selecting') return;
+    const p = getPlayer(this.state, playerId);
+    if (p && !p.characterChosen) {
+      p.character = (p.characterOptions ?? [p.character])[0];
+      p.characterChosen = true;
+    }
+    this.maybeFinishSelection();
   }
 
   broadcast(): void {
@@ -157,6 +173,64 @@ export class GameRoom {
   // -------------------------------------------------------------------------
 
   begin(): void {
+    if (this.state.phase === 'selecting') {
+      this.beginSelection();
+    } else {
+      this.beginPlay();
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase de sélection des personnages
+  // -------------------------------------------------------------------------
+
+  private beginSelection(): void {
+    this.state.selectionDeadline = Date.now() + SELECTION_TIMEOUT_MS;
+    this.state.selectionTimer = setTimeout(() => this.resolveSelectionTimeout(), SELECTION_TIMEOUT_MS);
+    // Les bots choisissent au hasard tout de suite.
+    for (const p of this.state.players) {
+      if (p.isBot && !p.characterChosen) {
+        const opts = p.characterOptions ?? [p.character];
+        p.character = opts[Math.floor(Math.random() * opts.length)];
+        p.characterChosen = true;
+      }
+    }
+    this.broadcast();
+    this.maybeFinishSelection();
+  }
+
+  chooseCharacter(playerId: string, character: CharacterName): void {
+    if (this.state.phase !== 'selecting') return;
+    const p = getPlayer(this.state, playerId);
+    if (!p || p.characterChosen) return;
+    if (!p.characterOptions?.includes(character)) return this.err(playerId, 'Personnage invalide.');
+    p.character = character;
+    p.characterChosen = true;
+    this.broadcast();
+    this.maybeFinishSelection();
+  }
+
+  private resolveSelectionTimeout(): void {
+    if (this.state.phase !== 'selecting') return;
+    for (const p of this.state.players) {
+      if (!p.characterChosen) {
+        p.character = (p.characterOptions ?? [p.character])[0];
+        p.characterChosen = true;
+      }
+    }
+    this.maybeFinishSelection();
+  }
+
+  private maybeFinishSelection(): void {
+    if (this.state.phase !== 'selecting') return;
+    if (!this.state.players.every((p) => p.characterChosen)) return;
+    if (this.state.selectionTimer) clearTimeout(this.state.selectionTimer);
+    this.state.selectionTimer = undefined;
+    finalizeSetup(this.state);
+    this.beginPlay();
+  }
+
+  private beginPlay(): void {
     addLog(this.state, 'La partie commence !');
     const sheriff = this.state.players.find((p) => p.role === 'sheriff');
     if (sheriff) addLog(this.state, `${sheriff.pseudo} est le ${roleLabel('sheriff', this.state.theme)}.`);
@@ -455,8 +529,12 @@ export class GameRoom {
       case 'general_store':
         return this.playGeneralStore(player, card, cardIdx);
 
-      // ---- Missed! ne se joue qu'en réaction ----
+      // ---- Missed! : réaction seulement, SAUF Calamity Janet qui peut le
+      //      jouer comme un BANG! à l'attaque. ----
       case 'missed':
+        if (player.character === 'calamity_janet' && target) {
+          return this.playBang(player, card, cardIdx, target);
+        }
         this.err(player.id, 'Raté ! ne se joue qu\'en réaction.');
         return false;
     }

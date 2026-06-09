@@ -5,6 +5,7 @@ import type {
   GameStateView,
   GameOverView,
   Theme,
+  CharacterName,
 } from '@shared/types';
 
 export interface DisconnectDecision {
@@ -23,7 +24,7 @@ export interface VoteState {
 const LS_ROOM = 'bang_room';
 const LS_PSEUDO = 'bang_pseudo';
 
-export type Screen = 'home' | 'lobby' | 'game' | 'over';
+export type Screen = 'home' | 'lobby' | 'select' | 'game' | 'over';
 
 export interface GameApi {
   connected: boolean;
@@ -39,6 +40,7 @@ export interface GameApi {
   joinRoom: (roomCode: string, pseudo: string) => void;
   devQuickstart: (pseudo: string, bots?: number, theme?: Theme) => void;
   startGame: (theme?: Theme) => void;
+  chooseCharacter: (character: CharacterName) => void;
   kickPlayer: (playerId: string) => void;
   playCard: (cardId: string, targetPlayerId?: string, secondCardId?: string) => void;
   respond: (response: string, cardId?: string) => void;
@@ -106,7 +108,7 @@ export function useGame(): GameApi {
     function onGameState(view: GameStateView) {
       if (!activeRef.current) return;
       setGame(view);
-      setScreen((s) => (s === 'over' ? s : 'game'));
+      setScreen((s) => (s === 'over' ? s : view.phase === 'selecting' ? 'select' : 'game'));
     }
     function onGameOver(payload: GameOverView) {
       if (!activeRef.current) return;
@@ -210,6 +212,10 @@ export function useGame(): GameApi {
     socket.emit('kick_player', { playerId: pid });
   }, []);
 
+  const chooseCharacter = useCallback((character: CharacterName) => {
+    socket.emit('choose_character', { character });
+  }, []);
+
   const devQuickstart = useCallback((p: string, bots = 3, theme: Theme = 'classic') => {
     setPseudo(p);
     pseudoRef.current = p;
@@ -287,6 +293,7 @@ export function useGame(): GameApi {
     joinRoom,
     devQuickstart,
     startGame,
+    chooseCharacter,
     kickPlayer,
     playCard,
     respond,

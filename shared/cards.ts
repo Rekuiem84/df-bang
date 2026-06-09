@@ -23,7 +23,7 @@ interface CardSpec {
 const SPECS: CardSpec[] = [
 	// --- Brunes (action) ---
 	{ name: "bang", color: "brown", count: 25 },
-	{ name: "missed", color: "brown", count: 10 },
+	{ name: "missed", color: "brown", count: 12 },
 	{ name: "beer", color: "brown", count: 6 },
 	{ name: "wells_fargo", color: "brown", count: 1 },
 	{ name: "stagecoach", color: "brown", count: 2 },
